@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movie Recommendation System 🎥</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-700 text-white min-h-screen flex flex-col items-center py-10">
+
+  <h1 class="text-4xl font-bold mb-6 text-blue-400">🎬 Smart Movie Recommendation System</h1>
+
+  <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl w-[90%] md:w-[60%]">
+    <label for="userInput" class="block mb-3 text-lg">Enter your mood or movie preference:</label>
+    <input id="userInput" type="text" placeholder="e.g. I want a funny and thrilling movie"
+      class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-400" />
+
+    <button onclick="analyzeAndRecommend()"
+      class="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-xl shadow-md transition">
+      Recommend
+    </button>
+
+    <div id="results" class="mt-8"></div>
+  </div>
+
+  <script>
+    // --- Mock Dataset ---
+    const mockMovieDB = [
+      { title: "The Dark Knight", genre: ["action", "thriller"], tags: ["heroic", "crime", "intense"], poster: "https://m.media-amazon.com/images/I/51K8ouYrHeL._AC_.jpg" },
+      { title: "Interstellar", genre: ["sciFi", "drama"], tags: ["space", "future", "emotional"], poster: "https://m.media-amazon.com/images/I/71n58DAc3xL._AC_SL1024_.jpg" },
+      { title: "The Pursuit of Happyness", genre: ["drama", "motivational"], tags: ["inspiring", "emotional"], poster: "https://m.media-amazon.com/images/I/81ZfD3CAGDL._AC_SY679_.jpg" },
+      { title: "3 Idiots", genre: ["comedy", "drama"], tags: ["funny", "motivational", "college"], poster: "https://m.media-amazon.com/images/I/71HMyqG6MRL._AC_SY679_.jpg" },
+      { title: "Inception", genre: ["thriller", "sciFi"], tags: ["mystery", "dream", "intense"], poster: "https://m.media-amazon.com/images/I/51oDODu0G2L._AC_.jpg" },
+      { title: "Chak De! India", genre: ["sports", "drama"], tags: ["inspiring", "competition", "motivational"], poster: "https://m.media-amazon.com/images/I/71y8xA+JytL._AC_SL1024_.jpg" },
+      { title: "Jab We Met", genre: ["romance", "comedy"], tags: ["love", "relationship", "funny"], poster: "https://m.media-amazon.com/images/I/81lJvOV2l+L._AC_SL1500_.jpg" },
+      { title: "Avengers: Endgame", genre: ["action", "sciFi"], tags: ["heroic", "battle", "teamwork"], poster: "https://m.media-amazon.com/images/I/81ExhpBEbHL._AC_SL1500_.jpg" }
+    ];
+
+    // --- SMART SENTIMENT ANALYZER ---
+    function smartSentiment(text) {
+      const lower = text.toLowerCase();
+      const positive = ['love','like','happy','funny','motivational','good','great','best','awesome','enjoyed','inspired'];
+      const negative = ['sad','bad','hate','cry','emotional','dark','depressing','boring','worst','angry','disappointing'];
+      const negations = ['not','never','no','hardly'];
+      let score = 0;
+
+      const tokens = lower.split(/\s+/);
+      for (let i = 0; i < tokens.length; i++) {
+        const word = tokens[i];
+        const prev = tokens[i - 1] || '';
+
+        if (positive.includes(word)) {
+          if (negations.includes(prev)) score -= 1;
+          else score += 1;
+        }
+        if (negative.includes(word)) {
+          if (negations.includes(prev)) score += 1;
+          else score -= 1;
+        }
+      }
+
+      if (score > 0) return 'Positive';
+      if (score < 0) return 'Negative';
+      return 'Neutral';
+    }
+
+    // --- ADVANCED KEYWORD EXTRACTOR ---
+    function advancedKeywordExtractor(text) {
+      const synonyms = {
+        funny: ['hilarious','humorous','comedic'],
+        sad: ['tragic','tearful','heartbreaking','emotional'],
+        motivational: ['inspiring','uplifting','encouraging'],
+        thriller: ['suspense','mystery','intense','crime'],
+        action: ['fight','battle','heroic','war','adventure'],
+        romance: ['love','relationship','romantic','heartfelt'],
+        sports: ['athletic','game','competition'],
+        sciFi: ['science','space','future','technology']
+      };
+
+      const lowerText = text.toLowerCase();
+      const allKeywords = new Set();
+      mockMovieDB.forEach(m => {
+        [...m.tags, ...m.genre].forEach(t => allKeywords.add(t.toLowerCase()));
+      });
+
+      const found = new Set();
+
+      // Direct keyword match
+      for (const kw of allKeywords) {
+        const regex = new RegExp(`\\b${kw}\\b`, 'i');
+        if (regex.test(lowerText)) found.add(kw);
+      }
+
+      // Synonym match
+      for (const [base, syns] of Object.entries(synonyms)) {
+        if (lowerText.includes(base)) found.add(base);
+        for (const s of syns) {
+          if (lowerText.includes(s)) found.add(base);
+        }
+      }
+
+      // Simple stemming
+      const stemMap = {
+        motivational: 'motivat',
+        emotional: 'emotion',
+        thrilling: 'thrill',
+        depressing: 'depress'
+      };
+      for (const [full, root] of Object.entries(stemMap)) {
+        if (lowerText.includes(root)) found.add(full);
+      }
+
+      return Array.from(found);
+    }
+
+    // --- MAIN FUNCTION ---
+    function analyzeAndRecommend() {
+      const query = document.getElementById("userInput").value.trim();
+      const sentiment = smartSentiment(query);
+      const keywords = advancedKeywordExtractor(query);
+      const resultDiv = document.getElementById("results");
+      resultDiv.innerHTML = '';
+
+      if (keywords.length === 0) {
+        resultDiv.innerHTML = `<p class="text-yellow-400 text-center">⚠️ No clear keywords found. Try adding more description!</p>`;
+        return;
+      }
+
+      // Filter movies by matching keywords in tags or genres
+      const recommendations = mockMovieDB.filter(movie =>
+        [...movie.tags, ...movie.genre].some(t => keywords.includes(t.toLowerCase()))
+      );
+
+      // Display Results
+      resultDiv.innerHTML = `
+        <h2 class="text-2xl font-semibold mb-3 text-green-400">Sentiment: ${sentiment}</h2>
+        <p class="mb-4 text-gray-300">Extracted Keywords: <span class="text-blue-300">${keywords.join(', ')}</span></p>
+        <h3 class="text-xl font-semibold mb-2 text-orange-400">Recommended Movies:</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          ${recommendations.length > 0 ?
+            recommendations.map(movie => `
+              <div class="bg-gray-700 p-3 rounded-xl shadow-lg hover:scale-105 transition transform">
+                <img src="${movie.poster}" alt="${movie.title}" class="rounded-lg mb-2 h-64 w-full object-cover">
+                <h4 class="text-lg font-bold">${movie.title}</h4>
+                <p class="text-sm text-gray-300">${movie.genre.join(', ')}</p>
+              </div>
+            `).join('')
+          :
+            `<p class="text-gray-400">No matching movies found 😔</p>`
+          }
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
